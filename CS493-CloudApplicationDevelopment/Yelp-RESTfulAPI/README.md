@@ -1,44 +1,63 @@
-# Weather App
+# Yelp-Style Business Review API
 
-An Android weather app built with Kotlin that fetches current conditions and a five-day forecast from the OpenWeather API, and remembers previously-viewed cities in a local database so they can be revisited from a navigation drawer.
+A RESTful API for a Yelp-like application, built with Node.js and Express. Supports businesses, reviews, and photos, backed by static in-memory JSON data, and packaged with Docker.
 
-## Features
+## Endpoints implemented
 
-- **Current weather screen** — shows temperature, cloud cover, wind speed/direction, and a description/icon for the city currently set in the app's settings.
-- **Five-day forecast screen** — shows an extended forecast for the same city.
-- **Settings screen** — lets the user change the forecast city and units (standard/metric/imperial).
-- **Persistent city history** — every city that's been viewed is saved to a local Room/SQLite database (city name + last-viewed timestamp), so it survives app restarts.
-- **Navigation drawer with recent cities** — the drawer lists every saved city, most-recently viewed first, in a `RecyclerView` layered on top of the standard `NavigationView` destinations (Current Weather / Five-Day Forecast / Settings).
-- **Tap a city to switch to it** — selecting a city in the drawer updates the "city" preference and reloads the app, so both the current weather and five-day forecast screens reflect the newly selected city.
-- **Share** — share the current forecast as text via the Android share sheet.
+### Businesses
+- `GET /businesses` — paginated list of all businesses (10 per page), with `nextPage`/`prevPage`/`lastPage` links.
+- `GET /businesses/:id` — details for one business, including its reviews and photos.
+- `POST /businesses` — create a business. Requires `name`, `address`, `city`, `state`, `zip`, `phone`, `category`, `subcategory`; `website` and `email` are optional.
+- `PUT /businesses/:id` — update any field of an existing business.
+- `DELETE /businesses/:id` — remove a business.
+- `GET /businesses/user/:ownerid` — list businesses owned by a given user.
 
-## Architecture
+### Reviews
+- `GET /reviews` — paginated list of all reviews.
+- `POST /reviews` — create a review. Requires `userid`, `businessid`, `stars`, `dollars`; `review` text is optional.
+- `PUT /reviews/:userid/:businessid` — update a review's stars, dollar rating, or text.
+- `DELETE /reviews/:userid/:businessid` — remove a review.
+- `GET /reviews/user/:userid` — list reviews written by a given user.
 
-- **UI**: Jetpack Navigation Component with three fragment destinations (`CurrentWeatherFragment`, `FiveDayForecastFragment`, `SettingsFragment`) hosted in `MainActivity`, plus a custom `DrawerListAdapter` (`RecyclerView`) for the saved-city list in the nav drawer.
-- **Networking**: Retrofit + Moshi (`OpenWeatherService`) for calls to the OpenWeather current-weather and five-day-forecast endpoints.
-- **Persistence**: Room
-  - `CityDatabaseEntry` — entity with `savedCity` (primary key) and `timeStamp`.
-  - `CityDatabaseDao` — insert (replace on conflict, so cities are never duplicated), delete, clear-all, and a query for all cities ordered by `timeStamp DESC`.
-  - `AppDatabase` — singleton `RoomDatabase`.
-  - `BookmarkedCityRepository` — thin wrapper over the DAO.
-- **State**: `ViewModel` + `LiveData`/coroutines (`CurrentWeatherViewModel`, `FiveDayForecastViewModel`, `BookmarkedCityViewModel`) to keep network/database calls off the UI thread and survive configuration changes.
-- **Images**: Glide, for loading weather condition icons.
+### Photos
+- `GET /photos` — paginated list of all photos.
+- `POST /photos/:userid/:businessid` — upload a photo (with optional caption) for a business.
+- `PUT /photos/:userid/:businessid` — update a photo's caption.
+- `DELETE /photos/:userid/:businessid` — remove a photo.
+- `GET /photos/user/:userid` — list photos uploaded by a given user.
 
-## Setup
+### Errors
+- Any unmatched route returns a `404` with a JSON error body.
 
-The app reads the OpenWeather API key from `resValue`, sourced from a Gradle property so it isn't checked into source control:
+## Data
 
-1. Get an API key from [OpenWeather](https://openweathermap.org/api).
-2. In your `~/.gradle/gradle.properties` (create it if it doesn't exist), add:
-   ```
-   OPENWEATHER_API_KEY="your_api_key_here"
-   ```
-3. Build and run the app — the key is picked up automatically as `R.string.openweather_api_key`.
+Bootstrapped from static JSON files in `data/` (`businesses.json`, `photos.json`, `reviews.json`), loaded with `require()`. Data lives in memory only — nothing is written back to disk, and changes reset when the server restarts.
 
-## Built with
+## Testing
 
-- Kotlin
-- Jetpack Navigation Component, Room, Preference, Lifecycle/ViewModel
-- Retrofit + Moshi
-- Glide
-- Kotlin Coroutines
+A Postman collection (`ASSIGN 1.postman_collection.json`) is included, with a sample request for each endpoint above.
+
+## Running the server
+
+```bash
+npm install
+npm start          # starts on the port in $PORT, default 8080
+# or, for auto-restart on file changes:
+npm run dev
+```
+
+## Running with Docker
+
+```bash
+docker build -f dockerfile -t yelp-api .
+docker run -p 8080:8080 yelp-api
+```
+
+> Note: the Dockerfile in this repo is named `dockerfile` (lowercase), so the `-f dockerfile` flag above is required on case-sensitive filesystems (Linux). Renaming it to `Dockerfile` lets you drop the flag and use plain `docker build .`.
+
+## Known limitations
+
+- `POST /photos/:userid/:businessid` returns a `201` with the new photo object, but doesn't actually push it into the in-memory `photos` array — so a newly "created" photo won't show up in a later `GET /photos` or `GET /photos/user/:userid`.
+- A few POST/PUT handlers (e.g. `POST /businesses`, `POST /reviews`) don't `return` immediately after sending a response inside a validation branch, so it's possible for more than one `res.send()`/`res.status()` call to run for a single request in some edge cases.
+- Pagination links are included on list endpoints, but individual resource responses don't include HATEOAS links to related resources (e.g. a business's reviews/photos as links rather than embedded arrays).
+- No OpenAPI/Swagger specification is included (this was only required for the grad-section version of the assignment).
