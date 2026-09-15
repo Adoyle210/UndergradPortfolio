@@ -26,7 +26,7 @@ android {
          * To make this work, you should follow the instructions in the comment at the top of
          * MainActivity.kt.
          */
-        resValue("string", "openweather_api_key", properties["OPENWEATHER_API_KEY"]?.toString() ?: "29e93ca9bb68f276635d501358c50958")
+        resValue("string", "openweather_api_key", properties["OPENWEATHER_API_KEY"]?.toString() ?: "YOUR_API_KEY_HERE")
     }
 
     buildTypes {
@@ -69,7 +69,7 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.14.2")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("com.google.andriod.gms:play-services-location:20.0.0")
+    // implementation("com.google.android.gms:play-services-location:20.0.0")
 
     implementation("com.google.devtools.ksp:symbol-processing-api:1.9.22-1.0.17") //SQLite & Room Persistence
     implementation("androidx.room:room-runtime:2.6.1")
